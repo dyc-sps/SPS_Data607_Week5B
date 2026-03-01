@@ -1,0 +1,138 @@
+---
+title: "SPS_Data607_Week5B"
+format: html
+editor: visual
+author: "David Chen"
+---
+
+## **Chess ELO calculations**
+
+Based on difference in ratings between the chess players and each of their opponents in our Project 1 tournament, calculate each player’s expected score (e.g. 4.3) and the difference from their actual score (e.g 4.0).  List the five players who most overperformed relative to their expected score, and the five players that most underperformed relative to their expected score.
+
+You’ll find some small differences in different implementation of ELO formulas.  You may use any reasonably-sourced formula, but please cite your source.  
+
+Image source (and potentially useful reference!): [The Elo Rating System for Chess and Beyond](https://www.youtube.com/watch?v=AsYfbmp0To0).  Feb 15, 2019.  \[video, 7m\]
+
+***The point system is W=1 D=0.5 L=0 B=1 H=0.5 U=0***
+
+## Approach
+
+### The new rating is calculated as:
+
+![](new_rating.png)
+
+R_new=R_old+K×(Score−Expected Score)
+
+R_old = your current rating
+
+K = a factor that determines how fast ratings change (often 10–40)
+
+Score = 1 for a win, 0.5 for a draw, 0 for a loss
+
+Expected Score = a probability based on rating difference
+
+### The formula for expected score:
+
+![](expected_score.png)
+
+If Player A has rating R_a and Player B has rating R-b
+
+E_a= 1 / (1+10\^(R_b−R_a)/400)
+
+## Running Code
+
+```{r}
+url="https://raw.githubusercontent.com/dyc-sps/SPS_Data607_Week5B/refs/heads/main/tournamentinfo.csv"
+```
+
+```{r}
+library(tidyverse)
+df_eol <- read.csv(url)
+
+df_eol <-df_eol[,c(1:10,12)]
+df_eol$R_number <- as.numeric(str_match(df_eol[,11], "R:\\s*(\\d+)")[,2])
+head(df_eol)
+```
+
+```{r}
+library(stringr)
+df_eol$expected_point  <- NA
+
+for (row_num in 1:nrow(df_eol)){
+expected_point=0
+k_play_num = df_eol[row_num,"R_number"]
+#print(k_play_num)
+
+for (col in 4:10){
+  
+  # from col 4 to col 10 , remove letter "W" "L" or others strings.
+  pair_num=str_match(df_eol[,col], " \\s*(\\d+)")[,2]
+  #print(df[pair_num,"R_number"][row_num])
+  # add row_num to only targeting single number and is.na function to work.
+  if(is.na(df_eol[pair_num,"R_number"][row_num])) {  
+     #na_num<-na_num+1
+    first_chr<-substring(df_eol[,col][row_num],1,1)
+    #print(first_chr)
+    BHU_point = case_when(
+      first_chr == "X" ~ 1,
+      first_chr == "B" ~ 1,
+      first_chr == "H" ~ 0.5,
+      first_chr == "U" ~ 0
+    )
+    #print(BHU_point)
+    expected_point <- expected_point+BHU_point
+   } else {
+    k_pair_num=df_eol[pair_num,"R_number"][row_num]
+    power_num=(k_pair_num - k_play_num)/400
+    ep_score=1/(1+10^power_num)
+    WDL_point =  case_when(
+      ep_score > 0.5 ~ 1,
+      ep_score == 0.5 ~ 0.5,
+      ep_score < 0.5 ~ 0
+    )
+    #print(WDL_point)
+    expected_point <- expected_point+WDL_point
+    
+    
+    }
+    #print(df[pair_num,"R_number"][row_num])
+  
+  
+}
+#print(pre_r_num)
+#print(na_num)
+#if (na_num ==0){ played_num = 7}else{played_num <- 7- na_num}
+#avg_pre_r_num=round(pre_r_num/played_num,0)
+df_eol[row_num,"expected_point"]<- expected_point
+#print(expected_point)
+}
+```
+
+```{r}
+df_eol$diff <- df_eol$Total-df_eol$expected_point
+```
+
+### Top 5 Outperformers
+
+```{r}
+df_eol[,c(1:3,12:14)] %>%
+  arrange(desc(diff)) %>%
+  slice_head(n = 5)
+
+```
+
+### Top 5 Underperformers
+
+```{r}
+df_eol[,c(1:3,12:14)] %>%
+  arrange(diff) %>%
+  slice_head(n = 5)
+```
+
+## Conclusion
+
+Compared each player's rating and applied the ELO expected score formula to calculate the differences. A positive number indicates the player outperformed expectations, while a negative number means the player underperformed relative to the expected score.
+
+### LLMS used:
+
+• OpenAI. (2025). ChatGPT (Version 5.2) \[Large language model\]. https://chat.openai.com. Accessed Feb 28, 2026.
